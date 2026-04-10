@@ -1,0 +1,101 @@
+{
+  "entities": {
+    "Guest": {
+      "title": "Guest",
+      "description": "A customer of the restaurant",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name of the guest" },
+        "email": { "type": "string", "format": "email", "description": "Email address" },
+        "phone": { "type": "string", "description": "Phone number" },
+        "role": { "type": "string", "enum": ["VIP", "Regular", "New"], "description": "Guest status" },
+        "bio": { "type": "string", "description": "Short biography or profession" },
+        "location": { "type": "string", "description": "City and country" },
+        "maitreNotes": { "type": "string", "description": "Internal notes from the Maitre D'" },
+        "preferences": {
+          "type": "object",
+          "properties": {
+            "drink": { "type": "string" },
+            "dish": { "type": "string" },
+            "zone": { "type": "string" },
+            "spending": { "type": "string" }
+          }
+        },
+        "loyaltyStatus": { "type": "string", "description": "Current loyalty tier" },
+        "visitsCount": { "type": "number" },
+        "lifetimeScore": { "type": "number" },
+        "lastVisit": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "Customer feedback for a visit",
+      "type": "object",
+      "properties": {
+        "guestId": { "type": "string", "description": "ID of the guest" },
+        "guestName": { "type": "string", "description": "Full name of the guest" },
+        "email": { "type": "string", "format": "email", "description": "Email address for notifications" },
+        "phone": { "type": "string", "description": "Phone number with mask" },
+        "ratings": {
+          "type": "object",
+          "properties": {
+            "food": { "type": "number" },
+            "service": { "type": "number" },
+            "ambience": { "type": "number" }
+          }
+        },
+        "comment": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDENTE", "VISUALIZADO", "RESPONDIDO"] },
+        "category": { "type": "string", "enum": ["ELOGIO", "RECLAMAÇÃO", "SUGESTÃO"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["guestId", "guestName", "email", "ratings", "timestamp"]
+    },
+    "Visit": {
+      "title": "Visit",
+      "description": "A specific dining instance",
+      "type": "object",
+      "properties": {
+        "guestId": { "type": "string" },
+        "type": { "type": "string", "description": "e.g., Dinner Service, Executive Lunch" },
+        "date": { "type": "string", "format": "date-time" },
+        "score": { "type": "number" },
+        "comment": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["guestId", "date", "score"]
+    },
+    "CompanySettings": {
+      "title": "Company Settings",
+      "description": "Global configuration for the company identity",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["name"]
+    }
+  },
+  "firestore": {
+    "/guests/{guestId}": {
+      "schema": { "$ref": "Guest" },
+      "description": "Collection of restaurant guests"
+    },
+    "/feedbacks/{feedbackId}": {
+      "schema": { "$ref": "Feedback" },
+      "description": "Collection of guest feedbacks"
+    },
+    "/guests/{guestId}/visits/{visitId}": {
+      "schema": { "$ref": "Visit" },
+      "description": "Subcollection of visits for a specific guest"
+    },
+    "/settings/company": {
+      "schema": { "$ref": "CompanySettings" },
+      "description": "Global company settings document"
+    }
+  }
+}

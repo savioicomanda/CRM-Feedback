@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        ((request.auth.token.email == "saviomurillomaia@gmail.com" && request.auth.token.email_verified == true) || 
+         request.auth.token.email == "admin@crmfeedback.com");
+    }
+
+    function isValidGuest(data) {
+      return data.keys().hasAll(['name', 'email']) &&
+             data.keys().hasOnly(['name', 'email', 'phone', 'role', 'bio', 'location', 'maitreNotes', 'preferences', 'loyaltyStatus', 'visitsCount', 'lifetimeScore', 'lastVisit']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.size() > 0 && data.email.size() < 100;
+    }
+
+    function isValidFeedback(data) {
+      return data.keys().hasAll(['guestId', 'guestName', 'email', 'ratings', 'timestamp']) &&
+             data.keys().hasOnly(['guestId', 'guestName', 'email', 'phone', 'ratings', 'comment', 'status', 'category', 'timestamp', 'reply', 'repliedAt']) &&
+             data.guestId is string && data.guestId.size() < 100 &&
+             data.guestName is string && data.guestName.size() > 0 && data.guestName.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() < 20)) &&
+             data.ratings is map &&
+             data.ratings.keys().hasAll(['food', 'service', 'ambience']) &&
+             data.ratings['food'] is number && data.ratings['food'] >= 1 && data.ratings['food'] <= 5 &&
+             data.ratings['service'] is number && data.ratings['service'] >= 1 && data.ratings['service'] <= 5 &&
+             data.ratings['ambience'] is number && data.ratings['ambience'] >= 1 && data.ratings['ambience'] <= 5 &&
+             (!('comment' in data) || (data.comment is string && data.comment.size() < 2000)) &&
+             (!('status' in data) || data.status in ['PENDENTE', 'VISUALIZADO', 'RESPONDIDO']) &&
+             (!('category' in data) || data.category in ['ELOGIO', 'RECLAMAÇÃO', 'SUGESTÃO']) &&
+             data.timestamp is timestamp;
+    }
+
+    function isValidCompanySettings(data) {
+      return data.keys().hasAll(['name']) &&
+             data.keys().hasOnly(['name', 'description', 'logoUrl', 'updatedAt', 'updatedBy']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             (!('description' in data) || (data.description is string && data.description.size() < 500)) &&
+             (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() < 1048576)) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+             (!('updatedBy' in data) || (data.updatedBy is string && data.updatedBy == request.auth.uid));
+    }
+
+    match /guests/{guestId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isValidGuest(request.resource.data);
+      allow delete: if isAdmin();
+      match /visits/{visitId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
+    match /feedbacks/{feedbackId} {
+      allow read: if isAuthenticated();
+      allow create: if isValidFeedback(request.resource.data);
+      allow update: if isAuthenticated() && isValidFeedback(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    match /settings/company {
+      allow read: if true;
+      allow write: if isAdmin() && isValidCompanySettings(request.resource.data);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
