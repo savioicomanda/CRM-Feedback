@@ -96,6 +96,18 @@
         "role": { "type": "string", "enum": ["admin", "user"] }
       },
       "required": ["name", "login", "permissions"]
+    },
+    "Migration": {
+      "title": "Migration",
+      "description": "A record of a database migration that has been executed",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "executedAt": { "type": "string", "format": "date-time" },
+        "executedBy": { "type": "string" }
+      },
+      "required": ["id", "name", "executedAt"]
     }
   },
   "firestore": {
@@ -118,6 +130,10 @@
     "/users/{userId}": {
       "schema": { "$ref": "AppUser" },
       "description": "Collection of system users and their permissions"
+    },
+    "/migrations/{migrationId}": {
+      "schema": { "$ref": "Migration" },
+      "description": "Collection of executed migrations"
     }
   }
 }

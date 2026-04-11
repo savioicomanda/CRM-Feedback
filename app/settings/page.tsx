@@ -6,8 +6,9 @@ import { Header } from '../components/Header';
 import { useAuth } from '../components/FirebaseProvider';
 import { db, handleFirestoreError, OperationType } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import { Save, Building2, FileText, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Save, Building2, FileText, Image as ImageIcon, Loader2, Database, CheckCircle2, Play } from 'lucide-react';
 import { motion } from 'motion/react';
+import { migrations, getExecutedMigrations, runMigration } from '@/lib/migrations';
 
 export default function SettingsPage() {
   const { user, loading, companySettings } = useAuth();
@@ -15,6 +16,8 @@ export default function SettingsPage() {
   const [description, setDescription] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [saving, setSaving] = useState(false);
+  const [executedMigrations, setExecutedMigrations] = useState<string[]>([]);
+  const [runningMigration, setRunningMigration] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -24,6 +27,31 @@ export default function SettingsPage() {
       setLogoUrl(companySettings.logoUrl);
     }
   }, [companySettings]);
+
+  useEffect(() => {
+    if (user?.isAdmin) {
+      fetchMigrations();
+    }
+  }, [user]);
+
+  const fetchMigrations = async () => {
+    const executed = await getExecutedMigrations();
+    setExecutedMigrations(executed);
+  };
+
+  const handleRunMigration = async (migration: any) => {
+    if (!user) return;
+    setRunningMigration(migration.id);
+    try {
+      await runMigration(migration, user.uid);
+      await fetchMigrations();
+      alert(`Migração "${migration.name}" executada com sucesso!`);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setRunningMigration(null);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -213,8 +241,76 @@ export default function SettingsPage() {
               </div>
             </form>
           </motion.div>
+
+          {/* Migrations Section */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="mt-10 bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden"
+          >
+            <div className="p-8 border-b border-slate-50">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Database className="w-5 h-5 text-orange-600" />
+                Sistema de Migrações
+              </h3>
+              <p className="text-sm text-slate-500 mt-1">Gerencie a estrutura e os dados iniciais do banco de dados.</p>
+            </div>
+
+            <div className="p-8 space-y-4">
+              {migrations.map((migration) => {
+                const isExecuted = executedMigrations.includes(migration.id);
+                const isRunning = runningMigration === migration.id;
+
+                return (
+                  <div key={migration.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div className="flex items-center gap-4">
+                      <div className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center",
+                        isExecuted ? "bg-green-100 text-green-600" : "bg-orange-100 text-orange-600"
+                      )}>
+                        {isExecuted ? <CheckCircle2 className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-900">{migration.name}</h4>
+                        <p className="text-xs text-slate-500">{migration.description}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleRunMigration(migration)}
+                      disabled={isExecuted || isRunning}
+                      className={cn(
+                        "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+                        isExecuted 
+                          ? "bg-green-50 text-green-600 cursor-default" 
+                          : "bg-orange-600 text-white hover:bg-orange-700 shadow-sm"
+                      )}
+                    >
+                      {isRunning ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : isExecuted ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          Executada
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-4 h-4" />
+                          Executar
+                        </>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
         </div>
       </main>
     </div>
   );
+}
+
+function cn(...classes: any[]) {
+  return classes.filter(Boolean).join(' ');
 }

@@ -73,6 +73,13 @@ service cloud.firestore {
              (!('role' in data) || data.role in ['admin', 'user']);
     }
 
+    function isValidMigration(data) {
+      return data.keys().hasAll(['id', 'name', 'executedAt']) &&
+             data.keys().hasOnly(['id', 'name', 'executedAt', 'executedBy']) &&
+             data.id is string && data.name is string &&
+             data.executedAt is timestamp;
+    }
+
     match /guests/{guestId} {
       allow read: if isAuthenticated();
       allow create, update: if isAuthenticated() && canEdit() && isValidGuest(request.resource.data);
@@ -98,6 +105,11 @@ service cloud.firestore {
     match /settings/company {
       allow read: if true;
       allow write: if isAdmin() && isValidCompanySettings(request.resource.data);
+    }
+
+    match /migrations/{migrationId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && isValidMigration(request.resource.data);
     }
 
     match /{document=**} {

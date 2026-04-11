@@ -510,12 +510,41 @@ export default function Dashboard() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-6 text-orange-600">
-                          <div className="flex">
-                            {[1, 2, 3, 4, 5].map((s) => (
-                              <Star key={s} className={cn("w-3 h-3", s <= fb.ratings.food ? "fill-orange-600" : "text-slate-200")} />
-                            ))}
-                          </div>
+                        <td className="px-6 py-6">
+                          {(() => {
+                            const avg = (fb.ratings.food + fb.ratings.service + fb.ratings.ambience) / 3;
+                            return (
+                              <div className="flex items-center gap-3">
+                                <div className={cn(
+                                  "w-10 h-10 rounded-xl flex flex-col items-center justify-center shadow-sm border transition-all",
+                                  avg >= 4.5 ? "bg-green-50 border-green-200 text-green-700" :
+                                  avg >= 3.5 ? "bg-blue-50 border-blue-200 text-blue-700" :
+                                  avg >= 2.5 ? "bg-orange-50 border-orange-200 text-orange-700" :
+                                  "bg-red-50 border-red-200 text-red-700"
+                                )}>
+                                  <span className="text-base font-black leading-none">{avg.toFixed(1)}</span>
+                                  <Star className="w-2 h-2 fill-current mt-0.5" />
+                                </div>
+                                <div className="hidden md:flex flex-col gap-1 flex-1 min-w-[100px]">
+                                  {[
+                                    { label: 'Comida', val: fb.ratings.food, color: 'bg-orange-500' },
+                                    { label: 'Serviço', val: fb.ratings.service, color: 'bg-blue-500' },
+                                    { label: 'Ambiente', val: fb.ratings.ambience, color: 'bg-slate-500' }
+                                  ].map((r) => (
+                                    <div key={r.label} className="flex items-center gap-1.5">
+                                      <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                        <div 
+                                          className={cn("h-full rounded-full", r.color)} 
+                                          style={{ width: `${(r.val / 5) * 100}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-[8px] font-black text-slate-700 w-2">{r.val}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-6 py-6">
                           <p className="text-sm text-slate-600 line-clamp-1">{fb.comment}</p>

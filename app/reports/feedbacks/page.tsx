@@ -350,15 +350,42 @@ export default function FeedbackReport() {
                           <p className="text-sm text-slate-600">{fb.phone || <span className="text-slate-300 italic">Não informado</span>}</p>
                         </td>
                         <td className="px-6 py-5">
-                          <div className="flex items-center gap-1 mb-1">
-                            <Star className="w-3 h-3 fill-orange-500 text-orange-500" />
-                            <span className="text-sm font-bold">{( (fb.ratings.food + fb.ratings.service + fb.ratings.ambience) / 3 ).toFixed(1)}</span>
-                          </div>
-                          <div className="flex gap-1">
-                            <span className="px-1.5 py-0.5 bg-orange-50 text-[8px] font-bold text-orange-600 rounded uppercase">C:{fb.ratings.food}</span>
-                            <span className="px-1.5 py-0.5 bg-blue-50 text-[8px] font-bold text-blue-600 rounded uppercase">S:{fb.ratings.service}</span>
-                            <span className="px-1.5 py-0.5 bg-slate-50 text-[8px] font-bold text-slate-600 rounded uppercase">A:{fb.ratings.ambience}</span>
-                          </div>
+                          {(() => {
+                            const avg = (fb.ratings.food + fb.ratings.service + fb.ratings.ambience) / 3;
+                            return (
+                              <div className="flex items-center gap-4 min-w-[160px]">
+                                <div className={cn(
+                                  "w-12 h-12 rounded-2xl flex flex-col items-center justify-center shadow-sm border transition-all",
+                                  avg >= 4.5 ? "bg-green-50 border-green-200 text-green-700" :
+                                  avg >= 3.5 ? "bg-blue-50 border-blue-200 text-blue-700" :
+                                  avg >= 2.5 ? "bg-orange-50 border-orange-200 text-orange-700" :
+                                  "bg-red-50 border-red-200 text-red-700"
+                                )}>
+                                  <span className="text-lg font-black leading-none">{avg.toFixed(1)}</span>
+                                  <Star className="w-2.5 h-2.5 fill-current mt-0.5" />
+                                </div>
+                                <div className="flex flex-col gap-1.5 flex-1">
+                                  {[
+                                    { label: 'Comida', val: fb.ratings.food, color: 'bg-orange-500' },
+                                    { label: 'Serviço', val: fb.ratings.service, color: 'bg-blue-500' },
+                                    { label: 'Ambiente', val: fb.ratings.ambience, color: 'bg-slate-500' }
+                                  ].map((r) => (
+                                    <div key={r.label} className="flex items-center gap-2">
+                                      <span className="text-[8px] font-bold text-slate-400 uppercase w-12 tracking-tighter">{r.label}</span>
+                                      <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                        <motion.div 
+                                          initial={{ width: 0 }}
+                                          animate={{ width: `${(r.val / 5) * 100}%` }}
+                                          className={cn("h-full rounded-full", r.color)} 
+                                        />
+                                      </div>
+                                      <span className="text-[9px] font-black text-slate-700 w-3">{r.val}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-6 py-5 max-w-xs">
                           <p className="text-sm text-slate-600 line-clamp-2">{fb.comment || <span className="text-slate-300 italic">Sem comentário</span>}</p>
