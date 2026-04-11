@@ -188,7 +188,7 @@ export default function FeedbackReport() {
   return (
     <div className="min-h-screen bg-surface">
       <Sidebar />
-      <main className="lg:ml-64 min-h-screen">
+      <main className="lg:ml-20 min-h-screen transition-all duration-300">
         <Header title="Relatório de Feedbacks" subtitle="Listagem completa e filtros avançados" />
         
         <div className="p-4 md:p-10 space-y-8">

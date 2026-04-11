@@ -98,7 +98,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-surface">
       <Sidebar />
-      <main className="lg:ml-64 min-h-screen">
+      <main className="lg:ml-20 min-h-screen transition-all duration-300">
         <Header title="Configurações" subtitle="Gerencie as informações da sua empresa" />
         
         <div className="p-4 md:p-10 max-w-4xl">

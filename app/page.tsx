@@ -309,7 +309,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-surface">
       <Sidebar />
-      <main className="lg:ml-64 min-h-screen">
+      <main className="lg:ml-20 min-h-screen transition-all duration-300">
         <Header title="Dashboard do Gerente" subtitle="Visão geral de métricas de satisfação" />
         
         <div className="p-4 md:p-10 space-y-10">
