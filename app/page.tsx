@@ -13,7 +13,9 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function Dashboard() {
-  const { user, loading, login, loginWithCredentials, companySettings } = useAuth();
+  const { user, loading, loginWithCredentials, companySettings } = useAuth();
+  const canEdit = user?.isAdmin || user?.permissions?.canEdit;
+  const canDelete = user?.isAdmin || user?.permissions?.canDelete;
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -231,14 +233,14 @@ export default function Dashboard() {
         
         <div className="w-full max-w-sm bg-white p-8 rounded-3xl shadow-xl border border-slate-100 space-y-6">
           {!showCredentialsLogin ? (
-            <>
-              <button 
-                onClick={login}
-                className="w-full bg-white border-2 border-slate-100 text-slate-700 px-8 py-4 rounded-2xl font-bold shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-3"
+            <div className="space-y-4">
+              <Link 
+                href="/feedback"
+                className="w-full bg-orange-600 text-white px-8 py-4 rounded-2xl font-bold shadow-lg hover:bg-orange-700 transition-all flex items-center justify-center gap-3"
               >
-                <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-                Entrar com Google
-              </button>
+                <MessageSquare className="w-5 h-5" />
+                Dar Feedback
+              </Link>
               
               <div className="relative flex items-center py-2">
                 <div className="flex-grow border-t border-slate-100"></div>
@@ -248,11 +250,12 @@ export default function Dashboard() {
 
               <button 
                 onClick={() => setShowCredentialsLogin(true)}
-                className="w-full bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold shadow-lg hover:bg-slate-800 transition-all"
+                className="w-full bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-3"
               >
-                Entrar com Usuário
+                <UserCheck className="w-5 h-5" />
+                Acessar Backend
               </button>
-            </>
+            </div>
           ) : (
             <form onSubmit={handleCredentialsLogin} className="space-y-4 text-left">
               <div className="space-y-2">
@@ -306,13 +309,13 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-surface">
       <Sidebar />
-      <main className="ml-64 min-h-screen">
+      <main className="lg:ml-64 min-h-screen">
         <Header title="Dashboard do Gerente" subtitle="Visão geral de métricas de satisfação" />
         
-        <div className="p-10 space-y-10">
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-slate-900">Bem-vindo, {user?.displayName || (user?.email === 'admin@crmfeedback.com' ? 'Administrador' : 'Gerente')}</h1>
-            <Link href="/feedback" target="_blank" className="bg-white border border-slate-200 px-6 py-2 rounded-full text-sm font-bold shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
+        <div className="p-4 md:p-10 space-y-10">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Bem-vindo, {user?.displayName || (user?.email === 'admin@crmfeedback.com' ? 'Administrador' : 'Gerente')}</h1>
+            <Link href="/feedback" target="_blank" className="w-full md:w-auto bg-white border border-slate-200 px-6 py-2 rounded-full text-sm font-bold shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
               <FileText className="w-4 h-4" />
               Ver Formulário de Feedback
             </Link>
@@ -406,7 +409,7 @@ export default function Dashboard() {
             </motion.div>
 
             {/* Snapshot Metrics Stack */}
-            <div className="col-span-12 lg:col-span-5 grid grid-cols-2 gap-6">
+            <div className="col-span-12 lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-6">
               {[
                 { label: 'Satisfação Comida', val: stats.food, icon: Utensils },
                 { label: 'Serviço', val: stats.service, icon: UserCheck },
@@ -479,18 +482,19 @@ export default function Dashboard() {
                   <button className="bg-white px-4 py-2 rounded-full text-xs font-bold text-slate-500 border border-slate-100">Pendentes</button>
                 </div>
               </div>
-              <div className="bg-white rounded-[1.5rem] shadow-sm overflow-hidden border border-slate-100">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50">
-                      <th className="px-8 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Convidado</th>
-                      <th className="px-6 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Avaliação</th>
-                      <th className="px-6 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Comentário</th>
-                      <th className="px-6 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Status</th>
-                      <th className="px-8 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
+              <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[800px]">
+                    <thead>
+                      <tr className="bg-slate-50">
+                        <th className="px-8 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Convidado</th>
+                        <th className="px-6 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Avaliação</th>
+                        <th className="px-6 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Comentário</th>
+                        <th className="px-6 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Status</th>
+                        <th className="px-8 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
                     {feedbacks.map((fb) => (
                       <tr key={fb.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-8 py-6">
@@ -548,7 +552,7 @@ export default function Dashboard() {
                                   className="absolute right-8 top-16 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-20 overflow-hidden"
                                 >
                                   <div className="p-2 space-y-1">
-                                    {fb.status === 'PENDENTE' && (
+                                    {fb.status === 'PENDENTE' && canEdit && (
                                       <button 
                                         onClick={() => handleStatusUpdate(fb.id, 'VISUALIZADO')}
                                         className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors"
@@ -557,27 +561,36 @@ export default function Dashboard() {
                                         Marcar como Lido
                                       </button>
                                     )}
-                                    <button 
-                                      onClick={() => {
-                                        setReplyingTo(fb);
-                                        setActiveMenu(null);
-                                      }}
-                                      className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors"
-                                    >
-                                      <MessageSquare className="w-4 h-4" />
-                                      Responder
-                                    </button>
-                                    <div className="h-px bg-slate-100 my-1" />
-                                    <button 
-                                      onClick={() => {
-                                        setDeletingId(fb.id);
-                                        setActiveMenu(null);
-                                      }}
-                                      className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                      Excluir
-                                    </button>
+                                    {canEdit && (
+                                      <button 
+                                        onClick={() => {
+                                          setReplyingTo(fb);
+                                          setActiveMenu(null);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors"
+                                      >
+                                        <MessageSquare className="w-4 h-4" />
+                                        Responder
+                                      </button>
+                                    )}
+                                    {canDelete && (
+                                      <>
+                                        <div className="h-px bg-slate-100 my-1" />
+                                        <button 
+                                          onClick={() => {
+                                            setDeletingId(fb.id);
+                                            setActiveMenu(null);
+                                          }}
+                                          className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                          Excluir
+                                        </button>
+                                      </>
+                                    )}
+                                    {!canEdit && !canDelete && (
+                                      <div className="px-3 py-2 text-xs text-slate-400 italic">Sem permissões</div>
+                                    )}
                                   </div>
                                 </motion.div>
                               </>
@@ -588,15 +601,16 @@ export default function Dashboard() {
                     ))}
                   </tbody>
                 </table>
-                <div className="p-6 text-center bg-slate-50/50">
-                  <button className="text-orange-600 font-bold text-sm hover:underline">Carregar mais feedbacks</button>
-                </div>
+              </div>
+              <div className="p-6 text-center bg-slate-50/50">
+                <button className="text-orange-600 font-bold text-sm hover:underline">Carregar mais feedbacks</button>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        <footer className="p-10 border-t border-slate-100">
+      <footer className="p-10 border-t border-slate-100">
           <div className="flex justify-between items-center opacity-40">
             <p className="text-xs font-medium">© 2026 {companySettings.name}. Todos os direitos reservados.</p>
             <div className="flex gap-4">

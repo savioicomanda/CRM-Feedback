@@ -78,6 +78,24 @@
         "updatedBy": { "type": "string" }
       },
       "required": ["name"]
+    },
+    "AppUser": {
+      "title": "App User",
+      "description": "A user of the management system",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name of the user" },
+        "login": { "type": "string", "description": "Login email" },
+        "permissions": {
+          "type": "object",
+          "properties": {
+            "canEdit": { "type": "boolean" },
+            "canDelete": { "type": "boolean" }
+          }
+        },
+        "role": { "type": "string", "enum": ["admin", "user"] }
+      },
+      "required": ["name", "login", "permissions"]
     }
   },
   "firestore": {
@@ -96,6 +114,10 @@
     "/settings/company": {
       "schema": { "$ref": "CompanySettings" },
       "description": "Global company settings document"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "AppUser" },
+      "description": "Collection of system users and their permissions"
     }
   }
 }

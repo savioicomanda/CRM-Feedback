@@ -14,6 +14,8 @@ import { motion, AnimatePresence } from 'motion/react';
 
 export default function FeedbackReport() {
   const { user, loading, companySettings } = useAuth();
+  const canEdit = user?.isAdmin || user?.permissions?.canEdit;
+  const canDelete = user?.isAdmin || user?.permissions?.canDelete;
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('TODOS');
@@ -158,13 +160,38 @@ export default function FeedbackReport() {
   if (loading) return null;
   if (!user) return null;
 
+  if (!user.isAdmin && !user.permissions?.canEdit && !user.permissions?.canDelete) {
+    return (
+      <div className="min-h-screen bg-surface">
+        <Sidebar />
+        <main className="ml-64 min-h-screen flex items-center justify-center p-10">
+          <div className="max-w-md w-full text-center space-y-6">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+              <Star className="w-10 h-10 text-red-600" />
+            </div>
+            <h2 className="text-3xl font-bold text-slate-900 italic serif">Acesso Restrito</h2>
+            <p className="text-slate-500 font-medium">
+              Você não tem permissão para acessar esta área. Entre em contato com o administrador do sistema.
+            </p>
+            <button 
+              onClick={() => window.location.href = '/'}
+              className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-800 transition-all"
+            >
+              Voltar ao Início
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-surface">
       <Sidebar />
-      <main className="ml-64 min-h-screen">
+      <main className="lg:ml-64 min-h-screen">
         <Header title="Relatório de Feedbacks" subtitle="Listagem completa e filtros avançados" />
         
-        <div className="p-10 space-y-8">
+        <div className="p-4 md:p-10 space-y-8">
           {/* Filters Bar */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
             <div className="flex flex-col md:flex-row gap-4 items-end">
@@ -279,7 +306,7 @@ export default function FeedbackReport() {
           </div>
 
           {/* Results Table */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 pb-20">
             <div className="p-6 border-b border-slate-50 flex justify-between items-center">
               <h3 className="font-bold text-slate-900">Resultados ({filteredFeedbacks.length})</h3>
               <div className="flex gap-2">
@@ -291,7 +318,7 @@ export default function FeedbackReport() {
             </div>
             
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse min-w-[1000px]">
                 <thead>
                   <tr className="bg-slate-50/50">
                     <th className="px-8 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Data</th>
@@ -354,7 +381,10 @@ export default function FeedbackReport() {
                         <td className="px-8 py-5 text-right relative">
                           <button 
                             onClick={() => setActiveMenu(activeMenu === fb.id ? null : fb.id)}
-                            className="text-slate-400 hover:text-orange-600 transition-colors p-2 rounded-full hover:bg-slate-100"
+                            className={cn(
+                              "transition-all p-2 rounded-xl flex items-center justify-center ml-auto",
+                              activeMenu === fb.id ? "bg-orange-600 text-white shadow-lg" : "text-slate-400 hover:text-orange-600 hover:bg-orange-50"
+                            )}
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
@@ -363,46 +393,63 @@ export default function FeedbackReport() {
                             {activeMenu === fb.id && (
                               <>
                                 <div 
-                                  className="fixed inset-0 z-10" 
+                                  className="fixed inset-0 z-20" 
                                   onClick={() => setActiveMenu(null)}
                                 />
                                 <motion.div 
-                                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                  className="absolute right-8 top-12 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-20 overflow-hidden"
+                                  initial={{ opacity: 0, scale: 0.95, x: 10 }}
+                                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                                  exit={{ opacity: 0, scale: 0.95, x: 10 }}
+                                  className="absolute right-full top-0 mr-2 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 py-2"
                                 >
-                                  <div className="p-2 space-y-1">
-                                    {fb.status === 'PENDENTE' && (
+                                  <div className="px-2 py-1">
+                                    {fb.status === 'PENDENTE' && canEdit && (
                                       <button 
                                         onClick={() => handleStatusUpdate(fb.id, 'VISUALIZADO')}
-                                        className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors"
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-orange-50 hover:text-orange-600 rounded-xl transition-colors"
                                       >
-                                        <Check className="w-4 h-4" />
+                                        <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600">
+                                          <Check className="w-4 h-4" />
+                                        </div>
                                         Marcar como Lido
                                       </button>
                                     )}
-                                    <button 
-                                      onClick={() => {
-                                        setReplyingTo(fb);
-                                        setActiveMenu(null);
-                                      }}
-                                      className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors"
-                                    >
-                                      <MessageSquare className="w-4 h-4" />
-                                      Responder
-                                    </button>
-                                    <div className="h-px bg-slate-100 my-1" />
-                                    <button 
-                                      onClick={() => {
-                                        setDeletingId(fb.id);
-                                        setActiveMenu(null);
-                                      }}
-                                      className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                      Excluir
-                                    </button>
+                                    {canEdit && (
+                                      <button 
+                                        onClick={() => {
+                                          setReplyingTo(fb);
+                                          setActiveMenu(null);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors"
+                                      >
+                                        <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                                          <MessageSquare className="w-4 h-4" />
+                                        </div>
+                                        Responder
+                                      </button>
+                                    )}
+                                    {canDelete && (
+                                      <>
+                                        <div className="h-px bg-slate-50 my-1 mx-2" />
+                                        <button 
+                                          onClick={() => {
+                                            setDeletingId(fb.id);
+                                            setActiveMenu(null);
+                                          }}
+                                          className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                                        >
+                                          <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-red-600">
+                                            <Trash2 className="w-4 h-4" />
+                                          </div>
+                                          Excluir
+                                        </button>
+                                      </>
+                                    )}
+                                    {!canEdit && !canDelete && (
+                                      <div className="px-4 py-3 text-xs text-slate-400 italic text-center">
+                                        Sem permissões de ação
+                                      </div>
+                                    )}
                                   </div>
                                 </motion.div>
                               </>

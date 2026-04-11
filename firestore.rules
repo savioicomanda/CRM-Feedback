@@ -8,8 +8,22 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        ((request.auth.token.email == "saviomurillomaia@gmail.com" && request.auth.token.email_verified == true) || 
-         request.auth.token.email == "admin@crmfeedback.com");
+        (request.auth.token.email == "saviomurillomaia@gmail.com" || 
+         request.auth.token.email == "admin@crmfeedback.com" ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+    }
+
+    function canEdit() {
+      return isAdmin() || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions.canEdit == true);
+    }
+
+    function canDelete() {
+      return isAdmin() || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions.canDelete == true);
     }
 
     function isValidGuest(data) {
@@ -47,25 +61,38 @@ service cloud.firestore {
              (!('updatedBy' in data) || (data.updatedBy is string && data.updatedBy == request.auth.uid));
     }
 
+    function isValidAppUser(data) {
+      return data.keys().hasAll(['name', 'login', 'permissions']) &&
+             data.keys().hasOnly(['name', 'login', 'permissions', 'role']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.login is string && data.login.size() > 0 && data.login.size() < 100 &&
+             data.permissions is map &&
+             data.permissions.keys().hasAll(['canEdit', 'canDelete']) &&
+             data.permissions.canEdit is bool &&
+             data.permissions.canDelete is bool &&
+             (!('role' in data) || data.role in ['admin', 'user']);
+    }
+
     match /guests/{guestId} {
       allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated() && isValidGuest(request.resource.data);
-      allow delete: if isAdmin();
+      allow create, update: if isAuthenticated() && canEdit() && isValidGuest(request.resource.data);
+      allow delete: if canDelete();
       match /visits/{visitId} {
-        allow read, write: if isAuthenticated();
+        allow read, write: if isAuthenticated() && canEdit();
       }
     }
 
     match /feedbacks/{feedbackId} {
       allow read: if isAuthenticated();
       allow create: if isValidFeedback(request.resource.data);
-      allow update: if isAuthenticated() && isValidFeedback(request.resource.data);
-      allow delete: if isAdmin();
+      allow update: if isAuthenticated() && canEdit() && isValidFeedback(request.resource.data);
+      allow delete: if canDelete();
     }
 
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow write: if isAdmin();
+      allow create, update: if isAdmin() && isValidAppUser(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /settings/company {

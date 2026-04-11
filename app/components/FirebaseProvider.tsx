@@ -1,9 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, User, signInWithPopup, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { onAuthStateChanged, User, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '@/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc, setDoc } from 'firebase/firestore';
 
 interface CompanySettings {
   name: string;
@@ -11,11 +11,15 @@ interface CompanySettings {
   logoUrl: string;
 }
 
+interface UserPermissions {
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
 interface AuthContextType {
-  user: User | any | null;
+  user: (User & { isAdmin?: boolean; permissions?: UserPermissions; name?: string }) | any | null;
   loading: boolean;
   companySettings: CompanySettings;
-  login: () => Promise<void>;
   loginWithCredentials: (username: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
 }
@@ -34,8 +38,53 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [companySettings, setCompanySettings] = useState<CompanySettings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const userDocRef = doc(db, 'users', firebaseUser.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          const isHardcodedAdmin = firebaseUser.email === 'saviomurillomaia@gmail.com' ||
+                                  firebaseUser.email === 'admin@crmfeedback.com';
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setUser({
+              ...firebaseUser,
+              ...userData,
+              isAdmin: userData.role === 'admin' || isHardcodedAdmin
+            });
+          } else {
+            if (isHardcodedAdmin) {
+              const initialData = {
+                name: firebaseUser.displayName || (firebaseUser.email?.split('@')[0] || 'Admin'),
+                login: firebaseUser.email?.split('@')[0] || 'admin',
+                role: 'admin',
+                permissions: {
+                  canEdit: true,
+                  canDelete: true
+                }
+              };
+              await setDoc(userDocRef, initialData);
+              setUser({
+                ...firebaseUser,
+                ...initialData,
+                isAdmin: true
+              });
+            } else {
+              setUser({
+                ...firebaseUser,
+                isAdmin: false
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          setUser(firebaseUser);
+        }
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
@@ -53,38 +102,27 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const login = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-      localStorage.removeItem('crm_admin_session');
-    } catch (error) {
-      console.error('Login error:', error);
-    }
-  };
-
   const loginWithCredentials = async (username: string, password: string): Promise<boolean> => {
-    if (username === 'admin' && password === 'vfewq!@34') {
-      const email = 'admin@crmfeedback.com';
-      try {
-        await signInWithEmailAndPassword(auth, email, password);
-        return true;
-      } catch (error: any) {
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-          // Try to create the admin user if it doesn't exist (first run)
-          try {
-            await createUserWithEmailAndPassword(auth, email, password);
-            return true;
-          } catch (createError: any) {
-            console.error('Error creating admin:', createError);
-            throw createError;
-          }
+    // Map simple username to internal email if it doesn't look like an email
+    const email = username.includes('@') ? username : `${username}@crmfeedback.com`;
+    
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      return true;
+    } catch (error: any) {
+      // Special case for the first run of the 'admin' user
+      if (username === 'admin' && password === 'vfewq!@34' && (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential')) {
+        try {
+          await createUserWithEmailAndPassword(auth, email, password);
+          return true;
+        } catch (createError: any) {
+          console.error('Error creating admin:', createError);
+          throw createError;
         }
-        console.error('Login error:', error);
-        throw error;
       }
+      console.error('Login error:', error);
+      throw error;
     }
-    return false;
   };
 
   const logout = async () => {
@@ -98,7 +136,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, companySettings, login, loginWithCredentials, logout }}>
+    <AuthContext.Provider value={{ user, loading, companySettings, loginWithCredentials, logout }}>
       {children}
     </AuthContext.Provider>
   );
