@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, MessageSquare, Users, BarChart3, Plus, HelpCircle, LogOut, ChevronDown, ChevronRight, FileText, Settings, Building2, Menu, X as CloseIcon, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Users, BarChart3, Plus, HelpCircle, LogOut, ChevronDown, ChevronRight, FileText, Settings, Building2, Menu, X as CloseIcon } from 'lucide-react';
 import { useAuth } from './FirebaseProvider';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -181,21 +181,6 @@ export function Sidebar() {
                     <FileText className="w-4 h-4" />
                     <span>Relatório de Feedbacks</span>
                   </Link>
-                  {isAdmin && (
-                    <Link
-                      href="/analytics"
-                      onClick={() => setIsOpen(false)}
-                      className={cn(
-                        "flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all",
-                        pathname === '/analytics'
-                          ? "text-orange-700 dark:text-orange-400 font-bold"
-                          : "text-slate-500 dark:text-slate-500 hover:text-orange-600"
-                      )}
-                    >
-                      <TrendingUp className="w-4 h-4" />
-                      <span>Análises</span>
-                    </Link>
-                  )}
                 </div>
               )}
             </div>
