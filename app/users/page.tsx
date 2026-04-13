@@ -4,12 +4,12 @@ import React, { useEffect, useState } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { useAuth } from '../components/FirebaseProvider';
-import { db, firebaseConfig, handleFirestoreError, OperationType } from '@/firebase';
+import { auth, db, firebaseConfig, handleFirestoreError, OperationType } from '@/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, updatePassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Plus, Trash2, Edit2, Shield, X, Check, AlertCircle, Key, Mail } from 'lucide-react';
+import { Users, Plus, Trash2, Edit2, Shield, X, Check, AlertCircle, Key, Mail, Loader2 } from 'lucide-react';
 
 // Helper to get secondary auth without affecting main session
 const getSecondaryAuth = () => {
@@ -36,6 +36,7 @@ export default function UsersPage() {
   const [formData, setFormData] = useState({
     name: '',
     login: '',
+    email: '',
     password: '',
     confirmPassword: '',
     canEdit: true,
@@ -65,6 +66,7 @@ export default function UsersPage() {
       setFormData({
         name: userToEdit.name,
         login: userToEdit.login,
+        email: userToEdit.email || '',
         password: '',
         confirmPassword: '',
         canEdit: userToEdit.permissions?.canEdit ?? true,
@@ -76,6 +78,7 @@ export default function UsersPage() {
       setFormData({
         name: '',
         login: '',
+        email: '',
         password: '',
         confirmPassword: '',
         canEdit: true,
@@ -105,12 +108,12 @@ export default function UsersPage() {
         }
 
         const secondaryAuth = getSecondaryAuth();
-        const mappedEmail = formData.login.includes('@') ? formData.login : `${formData.login}@crmfeedback.com`;
-        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, mappedEmail, formData.password);
+        const authEmail = formData.email || (formData.login.includes('@') ? formData.login : `${formData.login}@crmfeedback.com`);
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, authEmail, formData.password);
         const newUid = userCredential.user.uid;
 
         // Save metadata to Firestore
-        await setDoc(doc(db, 'users', newUid), {
+        const userDoc: any = {
           name: formData.name,
           login: formData.login,
           role: formData.role,
@@ -118,13 +121,19 @@ export default function UsersPage() {
             canEdit: formData.canEdit,
             canDelete: formData.canDelete
           }
-        });
+        };
+
+        if (formData.email) {
+          userDoc.email = formData.email;
+        }
+
+        await setDoc(doc(db, 'users', newUid), userDoc);
 
         // Sign out from secondary app to avoid session issues
         await signOut(secondaryAuth);
       } else {
         // Update existing user
-        await setDoc(doc(db, 'users', editingUser.id), {
+        const userDoc: any = {
           name: formData.name,
           login: formData.login,
           role: formData.role,
@@ -132,7 +141,13 @@ export default function UsersPage() {
             canEdit: formData.canEdit,
             canDelete: formData.canDelete
           }
-        }, { merge: true });
+        };
+
+        if (formData.email) {
+          userDoc.email = formData.email;
+        }
+
+        await setDoc(doc(db, 'users', editingUser.id), userDoc, { merge: true });
 
         // Password update logic
         if (showPasswordFields && formData.password) {
@@ -147,22 +162,9 @@ export default function UsersPage() {
             // Updating own password
             await updatePassword(getAuth().currentUser!, formData.password);
           } else {
-            // Updating another user's password via Admin API
-            const idToken = await getAuth().currentUser?.getIdToken();
-            const response = await fetch('/api/users/update-password', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                targetUid: editingUser.id,
-                newPassword: formData.password,
-                adminToken: idToken
-              })
-            });
-
-            const result = await response.json();
-            if (!response.ok) {
-              throw new Error(result.error || 'Erro ao atualizar senha do usuário.');
-            }
+            // We no longer support direct password setting for other users due to environment restrictions.
+            // The UI has been updated to use sendPasswordResetEmail instead.
+            // This block should not be reached for other users anymore.
           }
         }
       }
@@ -178,16 +180,28 @@ export default function UsersPage() {
 
   const handleSendResetEmail = async () => {
     if (!editingUser) return;
-    const mappedEmail = editingUser.login.includes('@') ? editingUser.login : `${editingUser.login}@crmfeedback.com`;
+    
+    // Use the stored email if available, otherwise fallback to the login-based dummy email
+    const resetEmail = editingUser.email || (editingUser.login.includes('@') ? editingUser.login : `${editingUser.login}@crmfeedback.com`);
     
     try {
       setFormLoading(true);
-      await sendPasswordResetEmail(getAuth(), mappedEmail);
+      await sendPasswordResetEmail(auth, resetEmail);
       setResetEmailSent(true);
       setError('');
     } catch (err: any) {
       console.error('Error sending reset email:', err);
-      setError('Erro ao enviar e-mail de redefinição. Verifique se o login é um e-mail válido.');
+      let msg = 'Erro ao enviar e-mail de redefinição.';
+      if (err.code === 'auth/user-not-found') {
+        msg = 'Usuário não encontrado no Firebase Auth. Verifique se o e-mail está correto.';
+      } else if (err.code === 'auth/invalid-email') {
+        msg = 'O formato do e-mail é inválido.';
+      } else if (err.code === 'auth/unauthorized-continue-uri') {
+        msg = 'Domínio não autorizado no Firebase Console. Adicione este domínio aos domínios autorizados.';
+      } else {
+        msg = `Erro (${err.code}): ${err.message}`;
+      }
+      setError(msg);
     } finally {
       setFormLoading(false);
     }
@@ -271,7 +285,12 @@ export default function UsersPage() {
                         <span className="font-bold text-slate-900">{u.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-6 text-slate-600 font-medium">{u.login}</td>
+                    <td className="px-6 py-6">
+                      <div className="flex flex-col">
+                        <span className="text-slate-900 font-bold text-xs">{u.login}</span>
+                        <span className="text-slate-400 text-[10px]">{u.email}</span>
+                      </div>
+                    </td>
                     <td className="px-6 py-6">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                         {u.role === 'admin' ? 'Administrador' : 'Usuário'}
@@ -374,6 +393,17 @@ export default function UsersPage() {
                         />
                       </div>
 
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">E-mail (Opcional)</label>
+                        <input 
+                          type="email"
+                          value={formData.email}
+                          onChange={e => setFormData({...formData, email: e.target.value})}
+                          className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl px-4 py-3 text-sm font-medium"
+                          placeholder="Ex: joao@empresa.com"
+                        />
+                      </div>
+
                       {editingUser ? (
                         <div className="space-y-4 pt-2">
                           <div className="flex items-center justify-between">
@@ -408,37 +438,25 @@ export default function UsersPage() {
                               </div>
                               
                               {user.uid !== editingUser.id ? (
-                                <div className="space-y-3">
-                                  <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 mb-2">
-                                    <p className="text-[10px] text-orange-700 font-medium leading-relaxed">
-                                      Como administrador, você está definindo uma nova senha diretamente para este usuário.
+                                <div className="space-y-4">
+                                  <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100">
+                                    <p className="text-xs text-orange-800 font-medium leading-relaxed">
+                                      Por questões de segurança e restrições do ambiente, administradores não podem definir senhas manualmente para outros usuários.
+                                    </p>
+                                    <p className="text-[10px] text-orange-700 mt-2">
+                                      Clique no botão abaixo para enviar um e-mail de redefinição de senha para o usuário.
                                     </p>
                                   </div>
-                                  <input 
-                                    type="password"
-                                    value={formData.password}
-                                    onChange={e => setFormData({...formData, password: e.target.value})}
-                                    className="w-full bg-white border-slate-200 focus:ring-2 focus:ring-orange-600 rounded-xl px-4 py-3 text-sm font-medium"
-                                    placeholder="Nova senha (mín. 6 chars)"
-                                  />
-                                  <input 
-                                    type="password"
-                                    value={formData.confirmPassword}
-                                    onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
-                                    className="w-full bg-white border-slate-200 focus:ring-2 focus:ring-orange-600 rounded-xl px-4 py-3 text-sm font-medium"
-                                    placeholder="Confirme a nova senha"
-                                  />
-                                  <div className="pt-2">
-                                    <button 
-                                      type="button"
-                                      onClick={handleSendResetEmail}
-                                      disabled={formLoading}
-                                      className="w-full text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest flex items-center justify-center gap-1"
-                                    >
-                                      <Mail className="w-3 h-3" />
-                                      Ou enviar e-mail de redefinição
-                                    </button>
-                                  </div>
+                                  
+                                  <button 
+                                    type="button"
+                                    onClick={handleSendResetEmail}
+                                    disabled={formLoading}
+                                    className="w-full bg-orange-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-sm hover:bg-orange-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                  >
+                                    {formLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                                    Enviar E-mail de Redefinição
+                                  </button>
                                 </div>
                               ) : (
                                 <div className="space-y-3">

@@ -86,7 +86,8 @@
       "type": "object",
       "properties": {
         "name": { "type": "string", "description": "Full name of the user" },
-        "login": { "type": "string", "description": "Login email" },
+        "login": { "type": "string", "description": "Login username" },
+        "email": { "type": "string", "format": "email", "description": "User email for authentication and password resets" },
         "permissions": {
           "type": "object",
           "properties": {
@@ -97,6 +98,22 @@
         "role": { "type": "string", "enum": ["admin", "user"] }
       },
       "required": ["name", "login", "permissions"]
+    },
+    "EmailSettings": {
+      "title": "Email Settings",
+      "description": "SMTP configuration for system notifications",
+      "type": "object",
+      "properties": {
+        "host": { "type": "string", "description": "SMTP server host" },
+        "port": { "type": "number", "description": "SMTP server port (e.g. 465, 587)" },
+        "user": { "type": "string", "description": "SMTP username/email" },
+        "password": { "type": "string", "description": "SMTP password or app password" },
+        "fromName": { "type": "string", "description": "Display name for sent emails" },
+        "secure": { "type": "boolean", "description": "Use SSL/TLS" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["host", "port", "user", "password"]
     },
     "Migration": {
       "title": "Migration",
@@ -127,6 +144,10 @@
     "/settings/company": {
       "schema": { "$ref": "CompanySettings" },
       "description": "Global company settings document"
+    },
+    "/settings/email": {
+      "schema": { "$ref": "EmailSettings" },
+      "description": "SMTP configuration for the system"
     },
     "/users/{userId}": {
       "schema": { "$ref": "AppUser" },

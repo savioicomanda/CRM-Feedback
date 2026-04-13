@@ -5,17 +5,29 @@ import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { useAuth } from '../components/FirebaseProvider';
 import { db, handleFirestoreError, OperationType } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
-import { Save, Building2, FileText, Image as ImageIcon, Loader2, Database, CheckCircle2, Play } from 'lucide-react';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { Save, Building2, FileText, Image as ImageIcon, Loader2, Database, CheckCircle2, Play, Mail, Shield, Server, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { migrations, getExecutedMigrations, runMigration } from '@/lib/migrations';
 
 export default function SettingsPage() {
   const { user, loading, companySettings } = useAuth();
+  const [activeTab, setActiveTab] = useState<'company' | 'email' | 'migrations'>('company');
+  
+  // Company Settings State
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [googleReviewUrl, setGoogleReviewUrl] = useState('');
+  
+  // Email Settings State
+  const [emailHost, setEmailHost] = useState('');
+  const [emailPort, setEmailPort] = useState(587);
+  const [emailUser, setEmailUser] = useState('');
+  const [emailPassword, setEmailPassword] = useState('');
+  const [emailFromName, setEmailFromName] = useState('');
+  const [emailSecure, setEmailSecure] = useState(false);
+  
   const [saving, setSaving] = useState(false);
   const [executedMigrations, setExecutedMigrations] = useState<string[]>([]);
   const [runningMigration, setRunningMigration] = useState<string | null>(null);
@@ -33,8 +45,26 @@ export default function SettingsPage() {
   useEffect(() => {
     if (user?.isAdmin) {
       fetchMigrations();
+      fetchEmailSettings();
     }
   }, [user]);
+
+  const fetchEmailSettings = async () => {
+    try {
+      const emailDoc = await getDoc(doc(db, 'settings', 'email'));
+      if (emailDoc.exists()) {
+        const data = emailDoc.data();
+        setEmailHost(data.host || '');
+        setEmailPort(data.port || 587);
+        setEmailUser(data.user || '');
+        setEmailPassword(data.password || '');
+        setEmailFromName(data.fromName || '');
+        setEmailSecure(data.secure || false);
+      }
+    } catch (error) {
+      console.error('Error fetching email settings:', error);
+    }
+  };
 
   const fetchMigrations = async () => {
     const executed = await getExecutedMigrations();
@@ -76,7 +106,7 @@ export default function SettingsPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSaveCompany = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     
@@ -90,9 +120,33 @@ export default function SettingsPage() {
         updatedAt: new Date(),
         updatedBy: user.uid
       });
-      alert('Configurações salvas com sucesso!');
+      alert('Configurações da empresa salvas com sucesso!');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'settings/company');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'settings', 'email'), {
+        host: emailHost,
+        port: Number(emailPort),
+        user: emailUser,
+        password: emailPassword,
+        fromName: emailFromName,
+        secure: emailSecure,
+        updatedAt: new Date(),
+        updatedBy: user.uid
+      });
+      alert('Configurações de e-mail salvas com sucesso!');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'settings/email');
     } finally {
       setSaving(false);
     }
@@ -132,199 +186,366 @@ export default function SettingsPage() {
       <main className="lg:ml-20 min-h-screen transition-all duration-300">
         <Header title="Configurações" subtitle="Gerencie as informações da sua empresa" />
         
-        <div className="p-4 md:p-10 max-w-4xl">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden"
-          >
-            <div className="p-8 border-b border-slate-50">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-orange-600" />
-                Perfil da Empresa
-              </h3>
-              <p className="text-sm text-slate-500 mt-1">Essas informações serão exibidas no formulário de feedback e no painel.</p>
-            </div>
+        <div className="p-4 md:p-10 max-w-4xl space-y-8">
+          {/* Tabs Navigation */}
+          <div className="flex gap-2 p-1 bg-white rounded-2xl shadow-sm border border-slate-100 w-fit">
+            <button 
+              onClick={() => setActiveTab('company')}
+              className={cn(
+                "px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2",
+                activeTab === 'company' ? "bg-orange-600 text-white shadow-md" : "text-slate-500 hover:bg-slate-50"
+              )}
+            >
+              <Building2 className="w-4 h-4" />
+              Empresa
+            </button>
+            <button 
+              onClick={() => setActiveTab('email')}
+              className={cn(
+                "px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2",
+                activeTab === 'email' ? "bg-orange-600 text-white shadow-md" : "text-slate-500 hover:bg-slate-50"
+              )}
+            >
+              <Mail className="w-4 h-4" />
+              Email Config
+            </button>
+            <button 
+              onClick={() => setActiveTab('migrations')}
+              className={cn(
+                "px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2",
+                activeTab === 'migrations' ? "bg-orange-600 text-white shadow-md" : "text-slate-500 hover:bg-slate-50"
+              )}
+            >
+              <Database className="w-4 h-4" />
+              Migrações
+            </button>
+          </div>
 
-            <form onSubmit={handleSave} className="p-8 space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {activeTab === 'company' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden"
+            >
+              <div className="p-8 border-b border-slate-50">
+                <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-orange-600" />
+                  Perfil da Empresa
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">Essas informações serão exibidas no formulário de feedback e no painel.</p>
+              </div>
+
+              <form onSubmit={handleSaveCompany} className="p-8 space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Nome da Empresa</label>
+                    <div className="relative">
+                      <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Ex: The Culinary Ledger"
+                        className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Logo da Empresa</label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input 
+                          type="url"
+                          value={logoUrl}
+                          onChange={(e) => setLogoUrl(e.target.value)}
+                          placeholder="https://exemplo.com/logo.png ou Base64"
+                          className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
+                        />
+                      </div>
+                      <input 
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        accept="image/png, image/jpeg"
+                        className="hidden"
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                        Upload
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-400 ml-1 italic">Dica: Formatos PNG ou JPEG (máx. 800KB).</p>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Nome da Empresa</label>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Descrição / Slogan</label>
                   <div className="relative">
-                    <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input 
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Ex: The Culinary Ledger"
+                    <FileText className="absolute left-4 top-3 w-4 h-4 text-slate-400" />
+                    <textarea 
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Ex: Edição Maître D'"
+                      rows={3}
                       className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
-                      required
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Logo da Empresa</label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Link de Avaliação do Google (Google Business Profile)</label>
+                  <div className="relative">
+                    <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input 
+                      type="url"
+                      value={googleReviewUrl}
+                      onChange={(e) => setGoogleReviewUrl(e.target.value)}
+                      placeholder="https://g.page/r/XXXXXXXXXXXX/review"
+                      className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 ml-1 italic">
+                    Dica: Use este link para incentivar clientes satisfeitos a postarem no Google.
+                  </p>
+                </div>
+
+                {/* Preview Section */}
+                <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Prévia do Cabeçalho</h4>
+                  <div className="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100 max-w-sm">
+                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-orange-600 flex items-center justify-center flex-shrink-0">
+                      {logoUrl ? (
+                        <img src={logoUrl} alt="Logo Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <Building2 className="text-white w-6 h-6" />
+                      )}
+                    </div>
+                    <div>
+                      <h1 className="font-bold text-slate-900 text-lg leading-tight">{name || 'Nome da Empresa'}</h1>
+                      <p className="text-[10px] uppercase tracking-widest text-slate-500">{description || 'Descrição'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-4">
+                  <button 
+                    type="submit"
+                    disabled={saving}
+                    className="bg-orange-600 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-orange-700 transition-all flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {saving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    Salvar Empresa
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          )}
+
+          {activeTab === 'email' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden"
+            >
+              <div className="p-8 border-b border-slate-50">
+                <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-orange-600" />
+                  Configuração de E-mail (SMTP)
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">Configure o servidor de saída para notificações do sistema.</p>
+              </div>
+
+              <form onSubmit={handleSaveEmail} className="p-8 space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Servidor SMTP (Host)</label>
+                    <div className="relative">
+                      <Server className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
-                        type="url"
-                        value={logoUrl}
-                        onChange={(e) => setLogoUrl(e.target.value)}
-                        placeholder="https://exemplo.com/logo.png ou Base64"
+                        type="text"
+                        value={emailHost}
+                        onChange={(e) => setEmailHost(e.target.value)}
+                        placeholder="smtp.gmail.com"
+                        className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Porta</label>
+                    <div className="relative">
+                      <Shield className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="number"
+                        value={emailPort}
+                        onChange={(e) => setEmailPort(Number(e.target.value))}
+                        placeholder="465 ou 587"
+                        className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Usuário / E-mail</label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="email"
+                        value={emailUser}
+                        onChange={(e) => setEmailUser(e.target.value)}
+                        placeholder="seu-email@exemplo.com"
+                        className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Senha / App Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="password"
+                        value={emailPassword}
+                        onChange={(e) => setEmailPassword(e.target.value)}
+                        placeholder="••••••••••••"
+                        className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Nome do Remetente</label>
+                    <div className="relative">
+                      <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text"
+                        value={emailFromName}
+                        onChange={(e) => setEmailFromName(e.target.value)}
+                        placeholder="Ex: CRM Feedback"
                         className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
                       />
                     </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-6">
                     <input 
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                      accept="image/png, image/jpeg"
-                      className="hidden"
+                      type="checkbox"
+                      id="emailSecure"
+                      checked={emailSecure}
+                      onChange={(e) => setEmailSecure(e.target.checked)}
+                      className="w-5 h-5 rounded border-slate-300 text-orange-600 focus:ring-orange-600"
                     />
-                    <button 
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
-                    >
-                      <ImageIcon className="w-4 h-4" />
-                      Upload
-                    </button>
+                    <label htmlFor="emailSecure" className="text-sm font-bold text-slate-700 cursor-pointer">Usar SSL/TLS (Seguro)</label>
                   </div>
-                  <p className="text-[10px] text-slate-400 ml-1 italic">Dica: Formatos PNG ou JPEG (máx. 800KB).</p>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Descrição / Slogan</label>
-                <div className="relative">
-                  <FileText className="absolute left-4 top-3 w-4 h-4 text-slate-400" />
-                  <textarea 
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Ex: Edição Maître D'"
-                    rows={3}
-                    className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
-                  />
+                <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
+                  <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-xs text-blue-800 font-bold">Nota sobre Segurança</p>
+                    <p className="text-[10px] text-blue-700 leading-relaxed">
+                      Se estiver usando o Gmail, você precisará criar uma &quot;Senha de App&quot; nas configurações da sua conta Google. 
+                      Senhas comuns podem ser bloqueadas por segurança.
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Link de Avaliação do Google (Google Business Profile)</label>
-                <div className="relative">
-                  <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input 
-                    type="url"
-                    value={googleReviewUrl}
-                    onChange={(e) => setGoogleReviewUrl(e.target.value)}
-                    placeholder="https://g.page/r/XXXXXXXXXXXX/review"
-                    className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 ml-1 italic">
-                  Dica: Use este link para incentivar clientes satisfeitos a postarem no Google.
-                </p>
-              </div>
-
-              {/* Preview Section */}
-              <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Prévia do Cabeçalho</h4>
-                <div className="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100 max-w-sm">
-                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-orange-600 flex items-center justify-center flex-shrink-0">
-                    {logoUrl ? (
-                      <img src={logoUrl} alt="Logo Preview" className="w-full h-full object-cover" />
+                <div className="flex justify-end pt-4">
+                  <button 
+                    type="submit"
+                    disabled={saving}
+                    className="bg-orange-600 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-orange-700 transition-all flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {saving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <Building2 className="text-white w-6 h-6" />
+                      <Save className="w-4 h-4" />
                     )}
-                  </div>
-                  <div>
-                    <h1 className="font-bold text-slate-900 text-lg leading-tight">{name || 'Nome da Empresa'}</h1>
-                    <p className="text-[10px] uppercase tracking-widest text-slate-500">{description || 'Descrição'}</p>
-                  </div>
+                    Salvar Configurações de E-mail
+                  </button>
                 </div>
+              </form>
+            </motion.div>
+          )}
+
+          {activeTab === 'migrations' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden"
+            >
+              <div className="p-8 border-b border-slate-50">
+                <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <Database className="w-5 h-5 text-orange-600" />
+                  Sistema de Migrações
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">Gerencie a estrutura e os dados iniciais do banco de dados.</p>
               </div>
 
-              <div className="flex justify-end pt-4">
-                <button 
-                  type="submit"
-                  disabled={saving}
-                  className="bg-orange-600 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-orange-700 transition-all flex items-center gap-2 disabled:opacity-50"
-                >
-                  {saving ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  Salvar Alterações
-                </button>
-              </div>
-            </form>
-          </motion.div>
+              <div className="p-8 space-y-4">
+                {migrations.map((migration) => {
+                  const isExecuted = executedMigrations.includes(migration.id);
+                  const isRunning = runningMigration === migration.id;
 
-          {/* Migrations Section */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="mt-10 bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden"
-          >
-            <div className="p-8 border-b border-slate-50">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <Database className="w-5 h-5 text-orange-600" />
-                Sistema de Migrações
-              </h3>
-              <p className="text-sm text-slate-500 mt-1">Gerencie a estrutura e os dados iniciais do banco de dados.</p>
-            </div>
-
-            <div className="p-8 space-y-4">
-              {migrations.map((migration) => {
-                const isExecuted = executedMigrations.includes(migration.id);
-                const isRunning = runningMigration === migration.id;
-
-                return (
-                  <div key={migration.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <div className="flex items-center gap-4">
-                      <div className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center",
-                        isExecuted ? "bg-green-100 text-green-600" : "bg-orange-100 text-orange-600"
-                      )}>
-                        {isExecuted ? <CheckCircle2 className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                  return (
+                    <div key={migration.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div className="flex items-center gap-4">
+                        <div className={cn(
+                          "w-10 h-10 rounded-full flex items-center justify-center",
+                          isExecuted ? "bg-green-100 text-green-600" : "bg-orange-100 text-orange-600"
+                        )}>
+                          {isExecuted ? <CheckCircle2 className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900">{migration.name}</h4>
+                          <p className="text-xs text-slate-500">{migration.description}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-bold text-slate-900">{migration.name}</h4>
-                        <p className="text-xs text-slate-500">{migration.description}</p>
-                      </div>
+                      <button
+                        onClick={() => handleRunMigration(migration)}
+                        disabled={isExecuted || isRunning}
+                        className={cn(
+                          "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+                          isExecuted 
+                            ? "bg-green-50 text-green-600 cursor-default" 
+                            : "bg-orange-600 text-white hover:bg-orange-700 shadow-sm"
+                        )}
+                      >
+                        {isRunning ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : isExecuted ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" />
+                            Executada
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-4 h-4" />
+                            Executar
+                          </>
+                        )}
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleRunMigration(migration)}
-                      disabled={isExecuted || isRunning}
-                      className={cn(
-                        "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
-                        isExecuted 
-                          ? "bg-green-50 text-green-600 cursor-default" 
-                          : "bg-orange-600 text-white hover:bg-orange-700 shadow-sm"
-                      )}
-                    >
-                      {isRunning ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : isExecuted ? (
-                        <>
-                          <CheckCircle2 className="w-4 h-4" />
-                          Executada
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-4 h-4" />
-                          Executar
-                        </>
-                      )}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
         </div>
       </main>
     </div>

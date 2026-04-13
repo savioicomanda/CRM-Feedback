@@ -65,14 +65,28 @@ service cloud.firestore {
 
     function isValidAppUser(data) {
       return data.keys().hasAll(['name', 'login', 'permissions']) &&
-             data.keys().hasOnly(['name', 'login', 'permissions', 'role']) &&
+             data.keys().hasOnly(['name', 'login', 'email', 'permissions', 'role']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.login is string && data.login.size() > 0 && data.login.size() < 100 &&
+             (!('email' in data) || (data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"))) &&
              data.permissions is map &&
              data.permissions.keys().hasAll(['canEdit', 'canDelete']) &&
              data.permissions.canEdit is bool &&
              data.permissions.canDelete is bool &&
              (!('role' in data) || data.role in ['admin', 'user']);
+    }
+
+    function isValidEmailSettings(data) {
+      return data.keys().hasAll(['host', 'port', 'user', 'password']) &&
+             data.keys().hasOnly(['host', 'port', 'user', 'password', 'fromName', 'secure', 'updatedAt', 'updatedBy']) &&
+             data.host is string && data.host.size() > 0 &&
+             data.port is number &&
+             data.user is string && data.user.size() > 0 &&
+             data.password is string && data.password.size() > 0 &&
+             (!('fromName' in data) || data.fromName is string) &&
+             (!('secure' in data) || data.secure is bool) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+             (!('updatedBy' in data) || data.updatedBy is string);
     }
 
     function isValidMigration(data) {
@@ -107,6 +121,11 @@ service cloud.firestore {
     match /settings/company {
       allow read: if true;
       allow write: if isAdmin() && isValidCompanySettings(request.resource.data);
+    }
+
+    match /settings/email {
+      allow read: if isAdmin();
+      allow write: if isAdmin() && isValidEmailSettings(request.resource.data);
     }
 
     match /migrations/{migrationId} {
