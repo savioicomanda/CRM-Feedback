@@ -21,14 +21,18 @@ export default function SettingsPage() {
   const [googleReviewUrl, setGoogleReviewUrl] = useState('');
   
   // Email Settings State
+  const [emailProvider, setEmailProvider] = useState<'smtp' | 'resend'>('smtp');
   const [emailHost, setEmailHost] = useState('');
   const [emailPort, setEmailPort] = useState(587);
   const [emailUser, setEmailUser] = useState('');
   const [emailPassword, setEmailPassword] = useState('');
+  const [emailResendApiKey, setEmailResendApiKey] = useState('');
+  const [emailFromEmail, setEmailFromEmail] = useState('');
   const [emailFromName, setEmailFromName] = useState('');
   const [emailSecure, setEmailSecure] = useState(false);
   
   const [saving, setSaving] = useState(false);
+  const [testingEmail, setTestingEmail] = useState(false);
   const [executedMigrations, setExecutedMigrations] = useState<string[]>([]);
   const [runningMigration, setRunningMigration] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -54,10 +58,13 @@ export default function SettingsPage() {
       const emailDoc = await getDoc(doc(db, 'settings', 'email'));
       if (emailDoc.exists()) {
         const data = emailDoc.data();
+        setEmailProvider(data.provider || 'smtp');
         setEmailHost(data.host || '');
         setEmailPort(data.port || 587);
         setEmailUser(data.user || '');
         setEmailPassword(data.password || '');
+        setEmailResendApiKey(data.resendApiKey || '');
+        setEmailFromEmail(data.fromEmail || '');
         setEmailFromName(data.fromName || '');
         setEmailSecure(data.secure || false);
       }
@@ -135,10 +142,13 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       await setDoc(doc(db, 'settings', 'email'), {
+        provider: emailProvider,
         host: emailHost,
         port: Number(emailPort),
         user: emailUser,
         password: emailPassword,
+        resendApiKey: emailResendApiKey,
+        fromEmail: emailFromEmail,
         fromName: emailFromName,
         secure: emailSecure,
         updatedAt: new Date(),
@@ -149,6 +159,42 @@ export default function SettingsPage() {
       handleFirestoreError(error, OperationType.WRITE, 'settings/email');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTestEmail = async () => {
+    if (!user) return;
+    setTestingEmail(true);
+    try {
+      const response = await fetch('/api/test-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: user.email || `${user.login}@crmfeedback.com`,
+          settings: {
+            provider: emailProvider,
+            host: emailHost,
+            port: emailPort,
+            user: emailUser,
+            password: emailPassword,
+            resendApiKey: emailResendApiKey,
+            fromEmail: emailFromEmail,
+            fromName: emailFromName,
+            secure: emailSecure
+          }
+        })
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        alert('E-mail de teste enviado com sucesso! Verifique sua caixa de entrada.');
+      } else {
+        throw new Error(result.error || 'Erro ao enviar e-mail de teste.');
+      }
+    } catch (error: any) {
+      alert(`Erro no teste: ${error.message}`);
+    } finally {
+      setTestingEmail(false);
     }
   };
 
@@ -367,61 +413,128 @@ export default function SettingsPage() {
               </div>
 
               <form onSubmit={handleSaveEmail} className="p-8 space-y-8">
+                <div className="space-y-4">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Provedor de E-mail</label>
+                  <div className="flex gap-4">
+                    <button 
+                      type="button"
+                      onClick={() => setEmailProvider('smtp')}
+                      className={cn(
+                        "flex-1 p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2",
+                        emailProvider === 'smtp' ? "border-orange-600 bg-orange-50 text-orange-900" : "border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200"
+                      )}
+                    >
+                      <Server className="w-6 h-6" />
+                      <span className="font-bold text-sm">Servidor SMTP</span>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setEmailProvider('resend')}
+                      className={cn(
+                        "flex-1 p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2",
+                        emailProvider === 'resend' ? "border-orange-600 bg-orange-50 text-orange-900" : "border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200"
+                      )}
+                    >
+                      <Mail className="w-6 h-6" />
+                      <span className="font-bold text-sm">Resend API</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Servidor SMTP (Host)</label>
-                    <div className="relative">
-                      <Server className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input 
-                        type="text"
-                        value={emailHost}
-                        onChange={(e) => setEmailHost(e.target.value)}
-                        placeholder="smtp.gmail.com"
-                        className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
-                        required
-                      />
-                    </div>
-                  </div>
+                  {emailProvider === 'smtp' ? (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Servidor SMTP (Host)</label>
+                        <div className="relative">
+                          <Server className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input 
+                            type="text"
+                            value={emailHost}
+                            onChange={(e) => setEmailHost(e.target.value)}
+                            placeholder="smtp.gmail.com"
+                            className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
+                            required={emailProvider === 'smtp'}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Porta</label>
+                        <div className="relative">
+                          <Shield className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input 
+                            type="number"
+                            value={emailPort}
+                            onChange={(e) => setEmailPort(Number(e.target.value))}
+                            placeholder="465 ou 587"
+                            className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
+                            required={emailProvider === 'smtp'}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Usuário / E-mail</label>
+                        <div className="relative">
+                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input 
+                            type="email"
+                            value={emailUser}
+                            onChange={(e) => setEmailUser(e.target.value)}
+                            placeholder="seu-email@exemplo.com"
+                            className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
+                            required={emailProvider === 'smtp'}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Senha / App Password</label>
+                        <div className="relative">
+                          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input 
+                            type="password"
+                            value={emailPassword}
+                            onChange={(e) => setEmailPassword(e.target.value)}
+                            placeholder="••••••••••••"
+                            className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
+                            required={emailProvider === 'smtp'}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="space-y-2 md:col-span-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Resend API Key</label>
+                        <div className="relative">
+                          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input 
+                            type="password"
+                            value={emailResendApiKey}
+                            onChange={(e) => setEmailResendApiKey(e.target.value)}
+                            placeholder="re_xxxxxxxxxxxxxxxxxxxxxxxx"
+                            className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
+                            required={emailProvider === 'resend'}
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-400 ml-1 italic">
+                          Obtenha sua chave em <a href="https://resend.com" target="_blank" rel="noopener noreferrer" className="text-orange-600 hover:underline">resend.com</a>
+                        </p>
+                      </div>
+                    </>
+                  )}
 
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Porta</label>
-                    <div className="relative">
-                      <Shield className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input 
-                        type="number"
-                        value={emailPort}
-                        onChange={(e) => setEmailPort(Number(e.target.value))}
-                        placeholder="465 ou 587"
-                        className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Usuário / E-mail</label>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">E-mail do Remetente</label>
                     <div className="relative">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
                         type="email"
-                        value={emailUser}
-                        onChange={(e) => setEmailUser(e.target.value)}
-                        placeholder="seu-email@exemplo.com"
-                        className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Senha / App Password</label>
-                    <div className="relative">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input 
-                        type="password"
-                        value={emailPassword}
-                        onChange={(e) => setEmailPassword(e.target.value)}
-                        placeholder="••••••••••••"
+                        value={emailFromEmail}
+                        onChange={(e) => setEmailFromEmail(e.target.value)}
+                        placeholder="contato@suaempresa.com"
                         className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
                         required
                       />
@@ -442,16 +555,18 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 pt-6">
-                    <input 
-                      type="checkbox"
-                      id="emailSecure"
-                      checked={emailSecure}
-                      onChange={(e) => setEmailSecure(e.target.checked)}
-                      className="w-5 h-5 rounded border-slate-300 text-orange-600 focus:ring-orange-600"
-                    />
-                    <label htmlFor="emailSecure" className="text-sm font-bold text-slate-700 cursor-pointer">Usar SSL/TLS (Seguro)</label>
-                  </div>
+                  {emailProvider === 'smtp' && (
+                    <div className="flex items-center gap-3 pt-6">
+                      <input 
+                        type="checkbox"
+                        id="emailSecure"
+                        checked={emailSecure}
+                        onChange={(e) => setEmailSecure(e.target.checked)}
+                        className="w-5 h-5 rounded border-slate-300 text-orange-600 focus:ring-orange-600"
+                      />
+                      <label htmlFor="emailSecure" className="text-sm font-bold text-slate-700 cursor-pointer">Usar SSL/TLS (Seguro)</label>
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
@@ -459,16 +574,31 @@ export default function SettingsPage() {
                   <div className="space-y-1">
                     <p className="text-xs text-blue-800 font-bold">Nota sobre Segurança</p>
                     <p className="text-[10px] text-blue-700 leading-relaxed">
-                      Se estiver usando o Gmail, você precisará criar uma &quot;Senha de App&quot; nas configurações da sua conta Google. 
-                      Senhas comuns podem ser bloqueadas por segurança.
+                      {emailProvider === 'smtp' 
+                        ? 'Se estiver usando o Gmail, você precisará criar uma "Senha de App" nas configurações da sua conta Google.'
+                        : 'O Resend é a opção recomendada para maior estabilidade e facilidade de configuração.'}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-4">
+                <div className="flex justify-between items-center pt-4">
+                  <button 
+                    type="button"
+                    onClick={handleTestEmail}
+                    disabled={testingEmail || saving}
+                    className="bg-slate-100 text-slate-700 px-6 py-3 rounded-full font-bold hover:bg-slate-200 transition-all flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {testingEmail ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Play className="w-4 h-4" />
+                    )}
+                    Enviar E-mail de Teste
+                  </button>
+
                   <button 
                     type="submit"
-                    disabled={saving}
+                    disabled={saving || testingEmail}
                     className="bg-orange-600 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-orange-700 transition-all flex items-center gap-2 disabled:opacity-50"
                   >
                     {saving ? (
@@ -476,7 +606,7 @@ export default function SettingsPage() {
                     ) : (
                       <Save className="w-4 h-4" />
                     )}
-                    Salvar Configurações de E-mail
+                    Salvar Configurações
                   </button>
                 </div>
               </form>

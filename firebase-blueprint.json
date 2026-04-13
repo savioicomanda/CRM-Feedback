@@ -101,19 +101,22 @@
     },
     "EmailSettings": {
       "title": "Email Settings",
-      "description": "SMTP configuration for system notifications",
+      "description": "Email configuration for system notifications",
       "type": "object",
       "properties": {
+        "provider": { "type": "string", "enum": ["smtp", "resend"], "description": "Email provider to use" },
         "host": { "type": "string", "description": "SMTP server host" },
-        "port": { "type": "number", "description": "SMTP server port (e.g. 465, 587)" },
-        "user": { "type": "string", "description": "SMTP username/email" },
-        "password": { "type": "string", "description": "SMTP password or app password" },
+        "port": { "type": "number", "description": "SMTP server port" },
+        "user": { "type": "string", "description": "SMTP username" },
+        "password": { "type": "string", "description": "SMTP password" },
+        "resendApiKey": { "type": "string", "description": "Resend API Key (if using Resend)" },
+        "fromEmail": { "type": "string", "description": "Sender email address" },
         "fromName": { "type": "string", "description": "Display name for sent emails" },
         "secure": { "type": "boolean", "description": "Use SSL/TLS" },
         "updatedAt": { "type": "string", "format": "date-time" },
         "updatedBy": { "type": "string" }
       },
-      "required": ["host", "port", "user", "password"]
+      "required": ["provider"]
     },
     "Migration": {
       "title": "Migration",

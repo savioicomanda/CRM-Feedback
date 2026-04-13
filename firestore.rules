@@ -77,12 +77,15 @@ service cloud.firestore {
     }
 
     function isValidEmailSettings(data) {
-      return data.keys().hasAll(['host', 'port', 'user', 'password']) &&
-             data.keys().hasOnly(['host', 'port', 'user', 'password', 'fromName', 'secure', 'updatedAt', 'updatedBy']) &&
-             data.host is string && data.host.size() > 0 &&
-             data.port is number &&
-             data.user is string && data.user.size() > 0 &&
-             data.password is string && data.password.size() > 0 &&
+      return data.keys().hasAll(['provider']) &&
+             data.keys().hasOnly(['provider', 'host', 'port', 'user', 'password', 'resendApiKey', 'fromEmail', 'fromName', 'secure', 'updatedAt', 'updatedBy']) &&
+             data.provider in ['smtp', 'resend'] &&
+             (!('host' in data) || data.host is string) &&
+             (!('port' in data) || data.port is number) &&
+             (!('user' in data) || data.user is string) &&
+             (!('password' in data) || data.password is string) &&
+             (!('resendApiKey' in data) || data.resendApiKey is string) &&
+             (!('fromEmail' in data) || data.fromEmail is string) &&
              (!('fromName' in data) || data.fromName is string) &&
              (!('secure' in data) || data.secure is bool) &&
              (!('updatedAt' in data) || data.updatedAt is timestamp) &&
