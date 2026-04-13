@@ -74,6 +74,7 @@
         "name": { "type": "string" },
         "description": { "type": "string" },
         "logoUrl": { "type": "string" },
+        "googleReviewUrl": { "type": "string", "description": "Link to the Google Business Profile review page" },
         "updatedAt": { "type": "string", "format": "date-time" },
         "updatedBy": { "type": "string" }
       },

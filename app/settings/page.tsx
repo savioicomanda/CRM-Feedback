@@ -15,6 +15,7 @@ export default function SettingsPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [googleReviewUrl, setGoogleReviewUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [executedMigrations, setExecutedMigrations] = useState<string[]>([]);
   const [runningMigration, setRunningMigration] = useState<string | null>(null);
@@ -25,6 +26,7 @@ export default function SettingsPage() {
       setName(companySettings.name);
       setDescription(companySettings.description);
       setLogoUrl(companySettings.logoUrl);
+      setGoogleReviewUrl(companySettings.googleReviewUrl || '');
     }
   }, [companySettings]);
 
@@ -84,6 +86,7 @@ export default function SettingsPage() {
         name,
         description,
         logoUrl,
+        googleReviewUrl,
         updatedAt: new Date(),
         updatedBy: user.uid
       });
@@ -205,6 +208,23 @@ export default function SettingsPage() {
                     className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Link de Avaliação do Google (Google Business Profile)</label>
+                <div className="relative">
+                  <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="url"
+                    value={googleReviewUrl}
+                    onChange={(e) => setGoogleReviewUrl(e.target.value)}
+                    placeholder="https://g.page/r/XXXXXXXXXXXX/review"
+                    className="w-full bg-slate-50 border-none focus:ring-2 focus:ring-orange-600 rounded-xl pl-12 pr-4 py-3 text-sm font-medium"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 ml-1 italic">
+                  Dica: Use este link para incentivar clientes satisfeitos a postarem no Google.
+                </p>
               </div>
 
               {/* Preview Section */}

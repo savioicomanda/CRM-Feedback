@@ -95,6 +95,9 @@ export default function FeedbackForm() {
   };
 
   if (submitted) {
+    const avgRating = (formData.food + formData.service + formData.ambience) / 3;
+    const isPositive = avgRating >= 4;
+
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center p-4">
         <motion.div 
@@ -107,12 +110,37 @@ export default function FeedbackForm() {
           </div>
           <h2 className="text-3xl font-bold mb-4">Obrigado!</h2>
           <p className="text-slate-500 mb-8">Sua avaliação foi enviada com sucesso e nos ajudará a melhorar nossos serviços.</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="bg-orange-600 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-orange-700 transition-all"
-          >
-            Enviar outro feedback
-          </button>
+          
+          <div className="space-y-4">
+            {isPositive && companySettings.googleReviewUrl && (
+              <motion.div
+                initial={{ y: 10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="bg-orange-50 p-6 rounded-2xl border border-orange-100 mb-6"
+              >
+                <p className="text-sm font-bold text-orange-900 mb-4">
+                  Ficamos felizes que gostou! Que tal compartilhar sua experiência no Google para nos ajudar?
+                </p>
+                <a 
+                  href={companySettings.googleReviewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-white text-orange-600 px-6 py-3 rounded-xl font-bold shadow-sm hover:shadow-md transition-all border border-orange-200"
+                >
+                  <Star className="w-4 h-4 fill-orange-600" />
+                  Avaliar no Google
+                </a>
+              </motion.div>
+            )}
+
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full bg-slate-900 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-slate-800 transition-all"
+            >
+              Enviar outro feedback
+            </button>
+          </div>
         </motion.div>
       </div>
     );

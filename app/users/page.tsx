@@ -7,9 +7,9 @@ import { useAuth } from '../components/FirebaseProvider';
 import { db, firebaseConfig, handleFirestoreError, OperationType } from '@/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, updatePassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, updatePassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, Plus, Trash2, Edit2, Shield, X, Check, AlertCircle, Key } from 'lucide-react';
+import { Users, Plus, Trash2, Edit2, Shield, X, Check, AlertCircle, Key, Mail } from 'lucide-react';
 
 // Helper to get secondary auth without affecting main session
 const getSecondaryAuth = () => {
@@ -42,6 +42,8 @@ export default function UsersPage() {
     canDelete: false,
     role: 'user' as 'admin' | 'user'
   });
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   useEffect(() => {
     if (!user || !user.isAdmin) return;
@@ -82,6 +84,8 @@ export default function UsersPage() {
       });
     }
     setError('');
+    setShowPasswordFields(false);
+    setResetEmailSent(false);
     setIsModalOpen(true);
   };
 
@@ -130,10 +134,36 @@ export default function UsersPage() {
           }
         }, { merge: true });
 
-        // Password update is more complex as it requires re-authentication
-        // For simplicity in this CRUD, we'll focus on metadata
-        if (formData.password) {
-           setError('Aviso: A alteração de senha para usuários existentes não está disponível neste painel por motivos de segurança.');
+        // Password update logic
+        if (showPasswordFields && formData.password) {
+          if (formData.password !== formData.confirmPassword) {
+            throw new Error('As senhas não coincidem.');
+          }
+          if (formData.password.length < 6) {
+            throw new Error('A senha deve ter pelo menos 6 caracteres.');
+          }
+
+          if (user.uid === editingUser.id) {
+            // Updating own password
+            await updatePassword(getAuth().currentUser!, formData.password);
+          } else {
+            // Updating another user's password via Admin API
+            const idToken = await getAuth().currentUser?.getIdToken();
+            const response = await fetch('/api/users/update-password', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                targetUid: editingUser.id,
+                newPassword: formData.password,
+                adminToken: idToken
+              })
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+              throw new Error(result.error || 'Erro ao atualizar senha do usuário.');
+            }
+          }
         }
       }
 
@@ -141,6 +171,23 @@ export default function UsersPage() {
     } catch (err: any) {
       console.error('Error saving user:', err);
       setError(err.message || 'Erro ao salvar usuário.');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleSendResetEmail = async () => {
+    if (!editingUser) return;
+    const mappedEmail = editingUser.login.includes('@') ? editingUser.login : `${editingUser.login}@crmfeedback.com`;
+    
+    try {
+      setFormLoading(true);
+      await sendPasswordResetEmail(getAuth(), mappedEmail);
+      setResetEmailSent(true);
+      setError('');
+    } catch (err: any) {
+      console.error('Error sending reset email:', err);
+      setError('Erro ao enviar e-mail de redefinição. Verifique se o login é um e-mail válido.');
     } finally {
       setFormLoading(false);
     }
@@ -327,7 +374,99 @@ export default function UsersPage() {
                         />
                       </div>
 
-                      {!editingUser && (
+                      {editingUser ? (
+                        <div className="space-y-4 pt-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Segurança</label>
+                            {!showPasswordFields && !resetEmailSent && (
+                              <button 
+                                type="button"
+                                onClick={() => setShowPasswordFields(true)}
+                                className="text-[10px] font-bold text-orange-600 hover:text-orange-700 uppercase tracking-widest flex items-center gap-1"
+                              >
+                                <Key className="w-3 h-3" />
+                                Alterar Senha
+                              </button>
+                            )}
+                          </div>
+
+                          {showPasswordFields ? (
+                            <motion.div 
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              className="space-y-4 bg-slate-50 p-4 rounded-2xl border border-slate-100"
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-bold text-slate-700">Nova Senha</span>
+                                <button 
+                                  type="button"
+                                  onClick={() => setShowPasswordFields(false)}
+                                  className="text-slate-400 hover:text-slate-600"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                              
+                              {user.uid !== editingUser.id ? (
+                                <div className="space-y-3">
+                                  <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 mb-2">
+                                    <p className="text-[10px] text-orange-700 font-medium leading-relaxed">
+                                      Como administrador, você está definindo uma nova senha diretamente para este usuário.
+                                    </p>
+                                  </div>
+                                  <input 
+                                    type="password"
+                                    value={formData.password}
+                                    onChange={e => setFormData({...formData, password: e.target.value})}
+                                    className="w-full bg-white border-slate-200 focus:ring-2 focus:ring-orange-600 rounded-xl px-4 py-3 text-sm font-medium"
+                                    placeholder="Nova senha (mín. 6 chars)"
+                                  />
+                                  <input 
+                                    type="password"
+                                    value={formData.confirmPassword}
+                                    onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
+                                    className="w-full bg-white border-slate-200 focus:ring-2 focus:ring-orange-600 rounded-xl px-4 py-3 text-sm font-medium"
+                                    placeholder="Confirme a nova senha"
+                                  />
+                                  <div className="pt-2">
+                                    <button 
+                                      type="button"
+                                      onClick={handleSendResetEmail}
+                                      disabled={formLoading}
+                                      className="w-full text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest flex items-center justify-center gap-1"
+                                    >
+                                      <Mail className="w-3 h-3" />
+                                      Ou enviar e-mail de redefinição
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-3">
+                                  <input 
+                                    type="password"
+                                    value={formData.password}
+                                    onChange={e => setFormData({...formData, password: e.target.value})}
+                                    className="w-full bg-white border-slate-200 focus:ring-2 focus:ring-orange-600 rounded-xl px-4 py-3 text-sm font-medium"
+                                    placeholder="Nova senha (mín. 6 chars)"
+                                  />
+                                  <input 
+                                    type="password"
+                                    value={formData.confirmPassword}
+                                    onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
+                                    className="w-full bg-white border-slate-200 focus:ring-2 focus:ring-orange-600 rounded-xl px-4 py-3 text-sm font-medium"
+                                    placeholder="Confirme a nova senha"
+                                  />
+                                </div>
+                              )}
+                            </motion.div>
+                          ) : resetEmailSent ? (
+                            <div className="bg-green-50 p-4 rounded-2xl border border-green-100 flex items-center gap-3">
+                              <Check className="w-5 h-5 text-green-600 flex-shrink-0" />
+                              <p className="text-xs text-green-700 font-medium">E-mail de redefinição enviado com sucesso!</p>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
                         <>
                           <div className="space-y-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Senha</label>

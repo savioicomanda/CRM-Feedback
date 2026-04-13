@@ -9,6 +9,7 @@ interface CompanySettings {
   name: string;
   description: string;
   logoUrl: string;
+  googleReviewUrl?: string;
 }
 
 interface UserPermissions {
@@ -27,7 +28,8 @@ interface AuthContextType {
 const DEFAULT_SETTINGS: CompanySettings = {
   name: 'The Ledger',
   description: 'Edição Maître D\'',
-  logoUrl: ''
+  logoUrl: '',
+  googleReviewUrl: ''
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

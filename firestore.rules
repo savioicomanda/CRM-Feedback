@@ -8,8 +8,9 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (request.auth.token.email == "saviomurillomaia@gmail.com" || 
-         request.auth.token.email == "admin@crmfeedback.com" ||
+        (request.auth.token.email != null && 
+         (request.auth.token.email == "saviomurillomaia@gmail.com" || 
+          request.auth.token.email == "admin@crmfeedback.com") ||
          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
     }
@@ -53,10 +54,11 @@ service cloud.firestore {
 
     function isValidCompanySettings(data) {
       return data.keys().hasAll(['name']) &&
-             data.keys().hasOnly(['name', 'description', 'logoUrl', 'updatedAt', 'updatedBy']) &&
+             data.keys().hasOnly(['name', 'description', 'logoUrl', 'googleReviewUrl', 'updatedAt', 'updatedBy']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              (!('description' in data) || (data.description is string && data.description.size() < 500)) &&
              (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() < 1048576)) &&
+             (!('googleReviewUrl' in data) || (data.googleReviewUrl is string && data.googleReviewUrl.size() < 1000)) &&
              (!('updatedAt' in data) || data.updatedAt is timestamp) &&
              (!('updatedBy' in data) || (data.updatedBy is string && data.updatedBy == request.auth.uid));
     }
