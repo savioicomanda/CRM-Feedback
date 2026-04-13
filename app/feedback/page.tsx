@@ -300,7 +300,7 @@ export default function FeedbackForm() {
 
             {/* Footer CTA */}
             <div className="pt-6 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6">
-              <p className="text-sm text-slate-500 font-medium italic">Seus dados estão seguros e nos ajudam a evoluir.</p>
+              <p className="text-sm text-slate-500 font-medium italic">Seus dados estão seguros e nos ajudam a evoluir. Obrigado pela visita!</p>
               <button 
                 type="submit"
                 className="w-full md:w-auto bg-gradient-to-br from-orange-700 to-orange-500 text-white px-10 py-4 rounded-full font-bold text-lg shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
@@ -312,7 +312,7 @@ export default function FeedbackForm() {
           </form>
         </div>
 
-        {/* Photo Highlight */}
+        {/* Photo Highlight 
         <div className="mt-12 grid grid-cols-12 gap-4">
           <div className="col-span-8 h-32 rounded-xl overflow-hidden shadow-sm">
             <img 
@@ -324,7 +324,8 @@ export default function FeedbackForm() {
           <div className="col-span-4 h-32 bg-orange-100 rounded-xl flex items-center justify-center p-4 text-center">
             <p className="text-orange-900 font-bold text-sm leading-tight">Obrigado pela visita!</p>
           </div>
-        </div>
+        </div>*/}
+        
 
         <footer className="mt-12 text-center text-slate-400 text-xs font-medium uppercase tracking-widest pb-8">
           © 2026 {companySettings.name}. Todos os direitos reservados.
